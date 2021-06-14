@@ -12,7 +12,14 @@ import urllib.parse
 
 from datetime import datetime,timezone
 
-print('Loading function')
+if len(logging.getLogger().handlers) > 0:
+    # The Lambda environment pre-configures a handler logging to stderr. If a handler is already configured,
+    # `.basicConfig` does not execute. Thus we set the level directly.
+    logging.getLogger().setLevel(logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.DEBUG)
+
+logger.info('Loading function')
 s3 = boto3.client('s3')
 
 S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL')
@@ -41,6 +48,7 @@ def make_mqp_message(s3_object,rel_path):
     }
 
     if size <= MAX_SIZE:
+        logger.info("embedding file into message")
         base64_string = base64.b64encode(body).decode("ascii")
         message["content"] = {"encoding" : "base64", "value" : base64_string }
 
@@ -49,12 +57,12 @@ def make_mqp_message(s3_object,rel_path):
 
 def publish_message(message):
 
-    url = MQP_URL
-
-    params = pika.URLParameters(url)
+    logger.debug("establishing connection to broker")
+    params = pika.URLParameters(MQP_URL)
     connection = pika.BlockingConnection(params)
 
     channel = connection.channel() # start a channel
+    logger.debug("publishing message to broker")
     channel.basic_publish(exchange='amq.topic',
                       routing_key=MALAWI_TOPIC,
                       body=message)
@@ -63,34 +71,35 @@ def publish_message(message):
 
 
 def handler(event, context):
-    print("Received event: " + json.dumps(event, indent=2))
+    logger.debug("Received event: " + json.dumps(event, indent=2))
 
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
     path, filename = os.path.split(key)
-   
     
+    logger.info("incoming file {} {}".format(path,filename))
+   
     try:
         # move file into final position 
         rel_path = "{}/{}".format(MALAWI_TOPIC.replace('.','/'),filename)
         new_key = "public/{}".format(rel_path)
-        print("moving {bucket}/{} to {bucket}/{}".format(key,new_key,bucket=bucket))
+        logger.debug("moving {bucket}/{} to {bucket}/{}".format(key,new_key,bucket=bucket))
         response = s3.copy_object(Bucket=bucket, Key=new_key, CopySource={"Bucket" : bucket , "Key" : key }   )
         response = s3.delete_object(Bucket=bucket, Key=key)
 
         # get file content
-        print("getting {}/{}".format(bucket,new_key))
+        logger.debug("getting {}/{}".format(bucket,new_key))
         response = s3.get_object(Bucket=bucket, Key=new_key)
 
         # create message and send to broker
-        print("sending message with topic {} to broker {}".format( MALAWI_TOPIC ,re.sub( r":[^/]+@", ":*****@" , MQP_URL ) ))
+        logger.debug("sending message with topic {} to broker {}".format( MALAWI_TOPIC ,re.sub( r":[^/]+@", ":*****@" , MQP_URL ) ))
         mqp_notification = make_mqp_message(response,rel_path)
         mqp_notification = json.dumps(mqp_notification,indent=4)
         publish_message(mqp_notification)
         
-        print("message processed and published")
+        logger.info("message processed and published")
 
         return 0
     except Exception as e:
-        print("procesing error {}".format(e))
+        logger.error("procesing error {}".format(e))
         raise e
