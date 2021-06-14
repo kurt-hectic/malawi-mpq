@@ -6,6 +6,7 @@ import boto3
 import hashlib
 import os
 import json
+import re
 
 import urllib.parse
 
@@ -14,10 +15,10 @@ from datetime import datetime,timezone
 print('Loading function')
 s3 = boto3.client('s3')
 
-S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL' , "https://malawi-mqp.s3.eu-central-1.amazonaws.com/public")
-MAX_SIZE = int(os.environ.get('MAX_SIZE',4000))
-MALAWI_TOPIC = os.environ.get('MALAWI_TOPIC', 'mw.blantyre_chileka.observation.surface.land.automatic.tropics.0-90w')
-MQP_URL = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/%2f')
+S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL')
+MAX_SIZE = int(os.environ.get('MAX_SIZE'))
+MALAWI_TOPIC = os.environ.get('MALAWI_TOPIC')
+MQP_URL = os.environ.get('CLOUDAMQP_URL')
 
 def make_mqp_message(s3_object,rel_path):
 
@@ -62,26 +63,27 @@ def publish_message(message):
 
 
 def handler(event, context):
-    #print("Received event: " + json.dumps(event, indent=2))
+    print("Received event: " + json.dumps(event, indent=2))
 
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
     path, filename = os.path.split(key)
    
-    print("getting {}/{}".format(bucket,key))
     
     try:
-        
         # move file into final position 
         rel_path = "{}/{}".format(MALAWI_TOPIC.replace('.','/'),filename)
         new_key = "public/{}".format(rel_path)
+        print("moving {bucket}/{} to {bucket}/{}".format(key,new_key,bucket=bucket))
         response = s3.copy_object(Bucket=bucket, Key=new_key, CopySource={"Bucket" : bucket , "Key" : key }   )
         response = s3.delete_object(Bucket=bucket, Key=key)
 
         # get file content
+        print("getting {}/{}".format(bucket,new_key))
         response = s3.get_object(Bucket=bucket, Key=new_key)
 
         # create message and send to broker
+        print("sending message with topic {} to broker {}".format( MALAWI_TOPIC ,re.sub( r":[^/]+@", ":*****@" , MQP_URL ) ))
         mqp_notification = make_mqp_message(response,rel_path)
         mqp_notification = json.dumps(mqp_notification,indent=4)
         publish_message(mqp_notification)

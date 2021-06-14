@@ -1,0 +1,19 @@
+{
+"LambdaFunctionConfigurations": [
+    {
+      "Id": "s3eventtriggerslambda",
+      "LambdaFunctionArn": "#functionarn#",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "prefix",
+              "Value": "incoming/"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
