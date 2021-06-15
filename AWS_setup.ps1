@@ -56,10 +56,10 @@ aws iam attach-role-policy --role-name $executionrole --policy-arn arn:aws:iam::
 aws iam attach-role-policy --role-name $executionrole --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
 
 # create lambda function
-aws lambda create-function --region $region --function-name $functionname  --package-type Image  --code ImageUri=$accountnr.dkr.ecr.eu-central-1.amazonaws.com/$dockername:latest --role arn:aws:iam::${accountnr}:role/$executionrole 
+aws lambda create-function --region $region --function-name $functionname  --package-type Image  --code ImageUri=$accountnr.dkr.ecr.$region.amazonaws.com/$dockername:latest --role arn:aws:iam::${accountnr}:role/$executionrole 
 
 # update 
-# aws lambda update-function-code --region $region --function-name $functionname --image-uri "$accountnr.dkr.ecr.eu-central-1.amazonaws.com/${dockername}:latest"
+# aws lambda update-function-code --region $region --function-name $functionname --image-uri "$accountnr.dkr.ecr.$region.amazonaws.com/${dockername}:latest"
 
 # set env variables based on local environment file (not in github)
 $INI = Get-Content .\publisher_lambda\env_aws -Raw | ConvertFrom-StringData
