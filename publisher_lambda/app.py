@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-
 logger.info('Loading function')
 s3 = boto3.client('s3')
 
