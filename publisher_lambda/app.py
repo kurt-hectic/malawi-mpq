@@ -7,17 +7,17 @@ import hashlib
 import os
 import json
 import re
+import logging
 
 import urllib.parse
 
 from datetime import datetime,timezone
 
-if len(logging.getLogger().handlers) > 0:
-    # The Lambda environment pre-configures a handler logging to stderr. If a handler is already configured,
-    # `.basicConfig` does not execute. Thus we set the level directly.
-    logging.getLogger().setLevel(logging.DEBUG)
-else:
-    logging.basicConfig(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
 
 logger.info('Loading function')
 s3 = boto3.client('s3')
