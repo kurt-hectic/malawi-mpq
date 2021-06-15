@@ -13,20 +13,22 @@ import urllib.parse
 
 from datetime import datetime,timezone
 
-
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 
 logger.info('Loading function')
 s3 = boto3.client('s3')
 
+# environment variables to configure the code
 S3_PUBLIC_URL = os.environ.get('S3_PUBLIC_URL')
 MAX_SIZE = int(os.environ.get('MAX_SIZE'))
 MALAWI_TOPIC = os.environ.get('MALAWI_TOPIC')
 MQP_URL = os.environ.get('CLOUDAMQP_URL')
 
 def make_mqp_message(s3_object,rel_path):
+    """creates a MQP notification based on the WIS 2.0 message structure.
+    Embedds the file, if below message max size
+    """
 
     size = s3_object["ContentLength"]
     body = s3_object["Body"].read()
@@ -38,6 +40,7 @@ def make_mqp_message(s3_object,rel_path):
     
     hex_digest = hashlib.sha512(body).hexdigest()
        
+    # message structure
     message = {
         "pubTime" : pub_time,
         "baseUrl" : S3_PUBLIC_URL,
@@ -46,6 +49,7 @@ def make_mqp_message(s3_object,rel_path):
         "size" : size
     }
 
+    # embed the file if below max size
     if size <= MAX_SIZE:
         logger.info("embedding file into message")
         base64_string = base64.b64encode(body).decode("ascii")
@@ -55,23 +59,30 @@ def make_mqp_message(s3_object,rel_path):
 
 
 def publish_message(message):
+    """connects to the broker and sends the notiifcation. Closes connection, no persistence."""
 
     logger.debug("establishing connection to broker")
     params = pika.URLParameters(MQP_URL)
     connection = pika.BlockingConnection(params)
 
-    channel = connection.channel() # start a channel
+    channel = connection.channel()
     logger.debug("publishing message to broker")
-    channel.basic_publish(exchange='amq.topic',
-                      routing_key=MALAWI_TOPIC,
+    channel.basic_publish(exchange='amq.topic', # topic based exchange
+                      routing_key=MALAWI_TOPIC, # static routing key 
                       body=message)
 
     connection.close()
 
 
 def handler(event, context):
+    """function called by AWS and linked to the S3 trigger
+    Extracts bucket, file path and name.
+    Moves file into public directory with subdirectories based on topic.
+    Calls methods to create and send message structure."""
+    
     logger.debug("Received event: " + json.dumps(event, indent=2))
 
+    # filename and path
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = urllib.parse.unquote_plus(event['Records'][0]['s3']['object']['key'], encoding='utf-8')
     path, filename = os.path.split(key)
