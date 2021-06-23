@@ -1,0 +1,14 @@
+{
+	"pubTime": "20210623T075306.489836",
+	"baseUrl": "https://malawi-mqp.s3.eu-central-1.amazonaws.com/public",
+	"integrity": {
+		"method": "sha512",
+		"value": "cc2c257a63e53003f0dffe15692e99cfacb93e98a3bf46b56eae082c7972eacc053898c9e30278e01179d7669d3e1b6e81fdf3b12e2d16e662fac1b0a1b69d92"
+	},
+	"relPath": "/mw/blantyre_chileka/observation/surface/land/automatic/tropics/0-90w/TEST_WMOrep.SNO1.1.16698672652_2021062309060204.bufr",
+	"size": 220,
+	"content": {
+		"encoding": "base64",
+		"value": "QlVGUgAA3AMAABIAAGIBgAABDQEVBQkNAAAAADQAAQF+VSWgAESM1ABlVWgAMDg5MjAgICAgICAgICAgICAA3CXD6ClAAAIAAABGAAAAAAAcAAABgMcFDRcNDZYAQTEfHwEfASBBMSEHAAAAbgARzC/KpLQGVVaCJGagJ8f//////xQCNXB//i//jwxsgMBVj98B///4X///D//////////wACAAAAAAAAADEAxo0aNGjRo0aNGjRo0aNGmxo0arGjVY1WlVq1Y0aNGjRo0aNGjRo0aNGjRgNzc3Nw=="
+	}
+}

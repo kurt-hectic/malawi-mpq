@@ -1,0 +1,10 @@
+{
+	"pubTime": "20210622T151119.409103",
+	"baseUrl": "https://malawi-mqp.s3.eu-central-1.amazonaws.com/public",
+	"integrity": {
+		"method": "sha512",
+		"value": "664041eb337f05fb64aa6e4640b3e0a61145f300b3a031026c1595fdde5016da02676dbbcc96d61081d461c817c497fbe11c431fa01a13cfd0a0a267f1288137"
+	},
+	"relPath": "/mw/blantyre_chileka/observation/surface/land/automatic/tropics/0-90w/TEST_WMO_A_ISMC01VBRR071200RRA_C_RJTD_2021062217061504_100.bufr",
+	"size": 4665
+}
