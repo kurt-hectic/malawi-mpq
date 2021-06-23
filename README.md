@@ -14,7 +14,7 @@ The lambda function can be configured using environment variables, that can be s
 - CLOUDAMQP_URL: The connection string for connecting to the external broker
 
 ## code
-The script [AWS_setup.ps1](https://github.com/kurt-hectic/malawi-mpq/tree/main/publisher_lambda) (Windows Power Shell), creates S3 buckets, roles, a docker image for the lambda function, based on the [app.py](https://github.com/kurt-hectic/malawi-mpq/blob/main/publisher_lambda/app.py) code, an execution policy, other permissions as well as a trigger linking the S3 bucket, incoming folder, with the lambda function.
+The script [AWS_setup.ps1](https://github.com/kurt-hectic/malawi-mpq/blob/main/AWS_setup.ps1) (Windows Power Shell), creates S3 buckets, roles, a docker image for the lambda function, based on the [app.py](https://github.com/kurt-hectic/malawi-mpq/blob/main/publisher_lambda/app.py) code, an execution policy, other permissions as well as a trigger linking the S3 bucket, incoming folder, with the lambda function.
 
 There is also a [consumer script](https://github.com/kurt-hectic/malawi-mpq/blob/main/consumer/consume.py), which can be used to obtain the observations which are published.
 
