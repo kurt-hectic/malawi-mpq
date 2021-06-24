@@ -32,7 +32,7 @@ def parse_mqp_message(message,topic):
     # we only support base64 encoding and sha512 checksum at this point
     if "content" in message and not message["content"]["encoding"] == "base64":
         raise Exception("message encoding not supported")
-    if not not message["integrity"] == "sha512":
+    if not message["integrity"]["method"] == "sha512":
         raise Exception("message integrity not supported")
 
        
