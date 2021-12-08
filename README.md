@@ -25,7 +25,10 @@ Not included in the setup, and created manually, are:
 
 # local testing
 The docker image can be tested locally like this (env_aws file not included in github):
-```docker build -t s3tomqp:latest . && docker run --rm -it -p 9000:8080 --env-file env_aws s3tomqp```
+```docker build -t s3tomqp:latest . && docker run --rm -it -p 9000:8080 --env-file env_aws --env MALAWI_TOPIC=test s3tomqp```
 
 A test event can be sent by invoking the image with curl:
 ```curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d @test/s3-event.json```
+
+Testing of the client
+```cd consumer ; docker build -t mqpclient:latest . && docker run --rm -it --env DEBUG=True --env ROUTING_KEY=test --env CLOUDAMQP_URL SECRET -v %cd%\out:/app/out mqpclient:latest```

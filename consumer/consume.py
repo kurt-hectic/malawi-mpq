@@ -9,13 +9,13 @@ import traceback
 from jsonschema import validate
 
 url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/%2f') # the location and username password of the broker
-routing_key = "mw.#" # topic to subscribe to
+routing_key = os.environ.get('ROUTING_KEY',"mw.#") # topic to subscribe to
 out_dir = r"./out" # output directory. Subdirectories corresponding to the topic structure will be created, if needed.
 
 # the JSON grammar of the message structure
 schema = json.load(open("message-schema.json"))
 
-DEBUG = True
+DEBUG = os.environ.get('DEBUG',True)
 
 def parse_mqp_message(message,topic):
     """ Function that receives a MQP notification based on the WIS 2.0 specifications, as well as the routing key (topic).
@@ -34,16 +34,16 @@ def parse_mqp_message(message,topic):
         raise Exception("message encoding not supported")
     if not message["integrity"]["method"] == "sha512":
         raise Exception("message integrity not supported")
-
        
     # either download message or obtain it directly from the message structure    
     content = base64.b64decode(message["content"]["value"]) if "content" in message else requests.get(message["baseUrl"] + message["relPath"]).content
         
     # check message length and checksum. Only sha512 supported at the moment
+    content_hash = base64.b64encode( hashlib.sha512(content).digest() ).decode("utf8")
     if not len(content) == message["size"]:
         raise Exception("integrity issue. Message length expected {} got {}".format(len(content),message["size"]))
-    if not hashlib.sha512(content).hexdigest() == message["integrity"]["value"]:
-        raise Exception("integrity issue. Expected checksum {} got {}".format(hashlib.sha512(content).hexdigest(),message["integrity"]["value"]))
+    if not content_hash == message["integrity"]["value"]:
+        raise Exception("integrity issue. Expected checksum {} got {}".format(content_hash,message["integrity"]["value"]))
 
     path, filename = os.path.split(message["relPath"])
     topic_dir = os.path.join( out_dir , topic.replace(".","/") )
@@ -78,7 +78,6 @@ def main():
     result = channel.queue_declare(queue='', exclusive=True)
     queue_name = result.method.queue
     channel.queue_bind(exchange="amq.topic", queue=queue_name, routing_key=routing_key)
-
 
     # configure callback function
     channel.basic_consume(queue_name,

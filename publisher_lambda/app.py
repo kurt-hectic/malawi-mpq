@@ -14,7 +14,7 @@ import urllib.parse
 from datetime import datetime,timezone
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 logger.info('Loading function')
 s3 = boto3.client('s3')
@@ -29,6 +29,8 @@ def make_mqp_message(s3_object,rel_path):
     """creates a MQP notification based on the WIS 2.0 message structure.
     Embedds the file, if below message max size
     """
+    
+    logger.debug("entry make_mqp_message")
 
     size = s3_object["ContentLength"]
     body = s3_object["Body"].read()
@@ -38,13 +40,13 @@ def make_mqp_message(s3_object,rel_path):
     
     pub_time = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%f")
     
-    hex_digest = hashlib.sha512(body).hexdigest()
+    base64_digest = base64.b64encode( hashlib.sha512(body).digest() ).decode("utf8")
        
     # message structure
     message = {
         "pubTime" : pub_time,
         "baseUrl" : S3_PUBLIC_URL,
-        "integrity" : { "method" : "sha512" , "value" : hex_digest },
+        "integrity" : { "method" : "sha512" , "value" : base64_digest },
         "relPath" : "/{}".format(rel_path),
         "size" : size
     }
@@ -54,6 +56,8 @@ def make_mqp_message(s3_object,rel_path):
         logger.info("embedding file into message")
         base64_string = base64.b64encode(body).decode("ascii")
         message["content"] = {"encoding" : "base64", "value" : base64_string }
+
+    logger.debug("exit: make_mqp_message: returning ",message)
 
     return message
 

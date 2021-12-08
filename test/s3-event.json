@@ -27,9 +27,9 @@
           "arn": "arn:aws:s3:::malawi-mqp"
         },
         "object": {
-          "key": "incoming/A_ISMC01VBRR071200RRA_C_RJTD_20210607125133_100.bufr",
+          "key": "test/A_ISMC01VBRR071200RRA_C_RJTD_20210607125133_100.bufr",
           "size": 4665,
-          "eTag": "incoming/A_ISMC01VBRR071200RRA_C_RJTD_20210607125133_100.bufr",
+          "eTag": "test/A_ISMC01VBRR071200RRA_C_RJTD_20210607125133_100.bufr",
           "sequencer": "0C0F6F405D6ED209E1"
         }
       }
