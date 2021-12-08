@@ -43,7 +43,9 @@ def parse_mqp_message(message,topic):
     if not len(content) == message["size"]:
         raise Exception("integrity issue. Message length expected {} got {}".format(len(content),message["size"]))
     if not content_hash == message["integrity"]["value"]:
-        raise Exception("integrity issue. Expected checksum {} got {}".format(content_hash,message["integrity"]["value"]))
+        print("checksum problem. Check old style encoding")
+        if not hashlib.sha512(content).hexdigest() == message["integrity"]["value"]:
+            raise Exception("integrity issue. Expected checksum {} got {}".format(content_hash,message["integrity"]["value"]))
 
     path, filename = os.path.split(message["relPath"])
     topic_dir = os.path.join( out_dir , topic.replace(".","/") )
