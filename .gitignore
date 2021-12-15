@@ -1,2 +1,4 @@
 publisher_lambda/env_aws
 __pycache__/
+consumer/.env
+consumer/env_file

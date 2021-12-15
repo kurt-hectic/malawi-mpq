@@ -69,6 +69,8 @@ def callback(ch, method, properties, body):
 
 def main():
 
+    print("  [+] setting up MQP consumer")
+
     # connect to the broker
     params = pika.URLParameters(url)
     connection = pika.BlockingConnection(params)
