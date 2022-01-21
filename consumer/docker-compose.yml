@@ -5,10 +5,10 @@ services:
     env_file: env_file
 
     stdin_open: true
-    tty: false
+    tty: true
 
     logging:
       driver: ${LOG_DRIVER}
-      options:
-        loki-url: ${LOKI_URL}
+      options:  
+        loki-url: ${LOKI_URL} 
         labels: container_name,host
