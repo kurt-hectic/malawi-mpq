@@ -1,6 +1,7 @@
 version: "3.3"
 services:
   mqpconsumer:
+    container_name: consumer_maaike_test
     build: .
     env_file: env_file
 
@@ -11,4 +12,11 @@ services:
       driver: ${LOG_DRIVER}
       options:  
         loki-url: ${LOKI_URL} 
-        labels: container_name,host
+        loki-pipeline-stages: |
+          - regex:
+              expression: ^(?P<severity>[\w\.]+):(?P<pymodule>[\w]+)
+          - labels:
+              severity:
+              pymodule:
+        labels: container_name,host,severity,pymodule
+
