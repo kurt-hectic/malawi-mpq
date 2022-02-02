@@ -6,8 +6,11 @@ import base64
 import hashlib
 import traceback
 import time
+import logging
 
 from jsonschema import validate
+
+#logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
 
 url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/%2f') # the location and username password of the broker
 routing_key = os.environ.get('ROUTING_KEY',"mw.#") # topic to subscribe to
@@ -17,6 +20,9 @@ out_dir = r"./out" # output directory. Subdirectories corresponding to the topic
 schema = json.load(open("message-schema.json"))
 
 DEBUG = os.environ.get('DEBUG',True)
+log_level = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(level=log_level)
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 def parse_mqp_message(message,topic):
     """ Function that receives a MQP notification based on the WIS 2.0 specifications, as well as the routing key (topic).
@@ -25,9 +31,8 @@ def parse_mqp_message(message,topic):
     """
     
     message = json.loads(message)
-    
-    if DEBUG:
-        print("message: {}".format(message))
+
+    logging.debug( "MQP message: {}".format(message)) 
     
     validate(instance=message, schema=schema) # check if the message structure is valid
     # we only support base64 encoding and sha512 checksum at this point
@@ -44,7 +49,7 @@ def parse_mqp_message(message,topic):
     if not len(content) == message["size"]:
         raise Exception("integrity issue. Message length expected {} got {}".format(len(content),message["size"]))
     if not content_hash == message["integrity"]["value"]:
-        print("checksum problem. Check old style encoding")
+        logging.warning("checksum problem. Check old style encoding")
         if not hashlib.sha512(content).hexdigest() == message["integrity"]["value"]:
             raise Exception("integrity issue. Expected checksum {} got {}".format(content_hash,message["integrity"]["value"]))
 
@@ -56,17 +61,17 @@ def parse_mqp_message(message,topic):
     with open( out_file , "wb" ) as fp:
         fp.write(content)
         
-    print("obtained and wrote {}".format(out_file))
+    logging.info("Obtained and wrote file: {}".format(out_file))
 
 def callback(ch, method, properties, body):
     """callback function, called when a new notificaton arrives"""
     topic = method.routing_key
     
-    print(" [x] Received message with topic " + topic )
+    logging.info("Received message with topic: " + topic )
     try:
         parse_mqp_message(body,topic)
     except Exception as e:
-        traceback.print_exc()
+        logging.error("exception during mqp processing: {}".format( traceback.format_exc() ))
 
 def main():
 
@@ -77,7 +82,7 @@ def main():
         
             # connect to the broker
             params = pika.URLParameters(url)
-            print(" establishing connection to {}".format(params))
+            logging.info(" establishing connection to {}".format(params))
             connection = pika.BlockingConnection(params)
             channel = connection.channel()
 
@@ -92,11 +97,10 @@ def main():
             channel.basic_consume(queue_name,
                                   callback,
                                   auto_ack=True)
-
             
             try:
                 # start waiting for messages
-                print(' [*] Waiting for messages:')
+                logging.info(' [*] Waiting for messages:')
                 channel.start_consuming()
             except KeyboardInterrupt:
                 channel.stop_consuming()
@@ -111,11 +115,11 @@ def main():
             continue
         # Do not recover on channel errors
         except pika.exceptions.AMQPChannelError as err:
-            print("Caught a channel error: {}, stopping...".format(err))
+            logging.error("Caught a channel error: {}, stopping...".format(err))
             break
         # Recover on all other connection errors
         except pika.exceptions.AMQPConnectionError:
-            print("Connection was closed, retrying...")
+            logging.error("Connection was closed, retrying...")
             time.sleep(0.5)
             continue
             
