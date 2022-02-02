@@ -5,6 +5,7 @@ import json
 import base64
 import hashlib
 import traceback
+import time
 
 from jsonschema import validate
 
@@ -70,28 +71,55 @@ def callback(ch, method, properties, body):
 def main():
 
     print("  [+] setting up MQP consumer")
+        
+    while(True):
+        try:
+        
+            # connect to the broker
+            params = pika.URLParameters(url)
+            print(" establishing connection to {}".format(params))
+            connection = pika.BlockingConnection(params)
+            channel = connection.channel()
 
-    # connect to the broker
-    params = pika.URLParameters(url)
-    connection = pika.BlockingConnection(params)
-    channel = connection.channel()
+            # create a queue and bind it to the topic defined above. 
+            # The queue will get a random name assigned, which is different across invokations of the script. 
+            # This means that messages arriving when not connected will not be received. For this a unique name must be given to the queue.
+            result = channel.queue_declare(queue='', exclusive=True)
+            queue_name = result.method.queue
+            channel.queue_bind(exchange="amq.topic", queue=queue_name, routing_key=routing_key)
 
-    # create a queue and bind it to the topic defined above. 
-    # The queue will get a random name assigned, which is different across invokations of the script. 
-    # This means that messages arriving when not connected will not be received. For this a unique name must be given to the queue.
-    result = channel.queue_declare(queue='', exclusive=True)
-    queue_name = result.method.queue
-    channel.queue_bind(exchange="amq.topic", queue=queue_name, routing_key=routing_key)
+            # configure callback function
+            channel.basic_consume(queue_name,
+                                  callback,
+                                  auto_ack=True)
 
-    # configure callback function
-    channel.basic_consume(queue_name,
-                          callback,
-                          auto_ack=True)
-
-    # start waiting for messages
-    print(' [*] Waiting for messages:')
-    channel.start_consuming()
-
+            
+            try:
+                # start waiting for messages
+                print(' [*] Waiting for messages:')
+                channel.start_consuming()
+            except KeyboardInterrupt:
+                channel.stop_consuming()
+                connection.close()
+                break
+        except pika.exceptions.ConnectionClosedByBroker:
+            # Uncomment this to make the example not attempt recovery
+            # from server-initiated connection closure, including
+            # when the node is stopped cleanly
+            #
+            # break
+            continue
+        # Do not recover on channel errors
+        except pika.exceptions.AMQPChannelError as err:
+            print("Caught a channel error: {}, stopping...".format(err))
+            break
+        # Recover on all other connection errors
+        except pika.exceptions.AMQPConnectionError:
+            print("Connection was closed, retrying...")
+            time.sleep(0.5)
+            continue
+            
+       
     # gracefully stop and close ressources
     connection.close()
 
