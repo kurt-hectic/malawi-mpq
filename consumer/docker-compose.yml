@@ -7,8 +7,8 @@ services:
     stdin_open: true
     tty: true
 
-    logging:
-      driver: ${LOG_DRIVER}
-      options:  
-        loki-url: ${LOKI_URL} 
-        labels: container_name,host
+    #logging:
+    #  driver: ${LOG_DRIVER}
+    #  options:  
+    #    loki-url: ${LOKI_URL} 
+    #    labels: container_name,host

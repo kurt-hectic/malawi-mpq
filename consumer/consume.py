@@ -1,4 +1,3 @@
-import pika
 import os
 import requests
 import json
@@ -7,22 +6,42 @@ import hashlib
 import traceback
 import time
 import logging
+import random
+import re
+
 
 from jsonschema import validate
 
 #logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s')
 
-url = os.environ.get('CLOUDAMQP_URL', 'amqp://guest:guest@localhost:5672/%2f') # the location and username password of the broker
+DEBUG = os.getenv("DEBUG", 'True').lower() in ('true', '1', 't')
+ONLY_BUFR = os.getenv("ONLY_BUFR", 'True').lower() in ('true', '1', 't')
+
+
+log_level = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(level=log_level)
+
+
+url = os.environ.get('MQ_URL', 'amqp://guest:guest@localhost:5672/%2f') # the location and username password of the broker
+
+mq_schema = None
+
+if url.startswith("amqp"):
+    import pika
+    logging.getLogger("pika").setLevel(logging.WARNING)
+    mq_schema="amqp"
+elif url.startswith("mqtt"):
+    import paho.mqtt.client as mqtt
+    logging.getLogger("mqtt").setLevel(logging.WARNING)
+    mq_schema="mqtt"
+else:
+    raise Exception(f"schema of {url} not supported")
+
 routing_key = os.environ.get('ROUTING_KEY',"mw.#") # topic to subscribe to
 out_dir = r"./out" # output directory. Subdirectories corresponding to the topic structure will be created, if needed.
 
 # the JSON grammar of the message structure
 schema = json.load(open("message-schema.json"))
-
-DEBUG = os.environ.get('DEBUG',True)
-log_level = logging.DEBUG if DEBUG else logging.INFO
-logging.basicConfig(level=log_level)
-logging.getLogger("pika").setLevel(logging.WARNING)
 
 def parse_mqp_message(message,topic):
     """ Function that receives a MQP notification based on the WIS 2.0 specifications, as well as the routing key (topic).
@@ -40,6 +59,12 @@ def parse_mqp_message(message,topic):
         raise Exception("message encoding not supported")
     if not message["integrity"]["method"] == "sha512":
         raise Exception("message integrity not supported")
+        
+    path, filename = os.path.split(message["relPath"])
+    
+    if ONLY_BUFR and not filename.endswith(".bufr4"):
+        return False
+        
        
     # either download message or obtain it directly from the message structure    
     content = base64.b64decode(message["content"]["value"]) if "content" in message else requests.get(message["baseUrl"] + message["relPath"]).content
@@ -53,7 +78,6 @@ def parse_mqp_message(message,topic):
         if not hashlib.sha512(content).hexdigest() == message["integrity"]["value"]:
             raise Exception("integrity issue. Expected checksum {} got {}".format(content_hash,message["integrity"]["value"]))
 
-    path, filename = os.path.split(message["relPath"])
     topic_dir = os.path.join( out_dir , topic.replace(".","/") )
     
     os.makedirs( topic_dir , exist_ok=True )
@@ -64,7 +88,7 @@ def parse_mqp_message(message,topic):
     logging.info("Obtained and wrote file: {}".format(out_file))
 
 def callback(ch, method, properties, body):
-    """callback function, called when a new notificaton arrives"""
+    """callback function, called when a new notificaton arrives""" 
     topic = method.routing_key
     
     logging.info("Received message with topic: " + topic )
@@ -72,14 +96,13 @@ def callback(ch, method, properties, body):
         parse_mqp_message(body,topic)
     except Exception as e:
         logging.error("exception during mqp processing: {}".format( traceback.format_exc() ))
-
-def main():
-
-    print("  [+] setting up MQP consumer")
         
+        
+def setup_amqp(url):
+
     while(True):
+
         try:
-        
             # connect to the broker
             params = pika.URLParameters(url)
             logging.info(" establishing connection to {}".format(params))
@@ -122,10 +145,62 @@ def main():
             logging.error("Connection was closed, retrying...")
             time.sleep(0.5)
             continue
-            
-       
+                       
     # gracefully stop and close ressources
     connection.close()
+    
+def sub_connect(client, userdata, flags, rc, properties=None):
+    logging.info(f"on connection to subscribe: {mqtt.connack_string(rc)}")
+    for s in ["xpublic/#"]:
+        client.subscribe(s, qos=1)
+        
+def sub_message_content(client, userdata, msg):
+    """
+      print messages received.  Exit on count received.
+    """
+    
+    parse_mqp_message(msg.payload.decode('utf-8'),msg.topic)
+    
+    
+    
+def parse_connection_string(url):
+    # amqps://leesvecc:6af6XRjOxbINH89YTCoD9wz8f2LDT_hZ@cow.rmq2.cloudamqp.com/leesvecc
+
+    m = re.match("(?P<schema>\w+)://(?P<user>\w+):(?P<pass>\w+)@(?P<host>[.\w]+):(?P<port>\d+)", url)
+    
+    config = m.groupdict()
+    
+    #logging.debug(f"url match {config}")
+    
+    return config
+    
+def setup_mqtt(url):
+
+        config = parse_connection_string(url)
+
+        r = random.Random()
+        clientId = f"{__name__}_{r.randint(1,1000):04d}"
+
+        client = mqtt.Client(client_id=clientId, protocol=mqtt.MQTTv5)
+        client.on_connect = sub_connect
+        client.on_message = sub_message_content
+        client.username_pw_set(config["user"], config["pass"])
+        client.connect(config["host"])
+
+        # this reconnects, no need to handle disconnects
+        client.loop_forever()
+           
+        
+
+def main():
+
+    logging.info("  [+] setting up MQP consumer")
+    logging.debug(f"url {url} schema: {mq_schema}")
+    
+    if mq_schema == "amqp":
+        setup_amqp(url)
+    elif mq_schema == "mqtt":
+        setup_mqtt(url)
 
 if __name__ == "__main__":
     main()
