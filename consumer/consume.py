@@ -43,6 +43,17 @@ out_dir = r"./out" # output directory. Subdirectories corresponding to the topic
 # the JSON grammar of the message structure
 schema = json.load(open("message-schema.json"))
 
+def process_message_content(message):
+    """ either download message or obtain it directly from the message structure"""
+    if "content" in message:
+        content = base64.b64decode(message["content"]["value"])  
+    else:
+        resp = requests.get(message["baseUrl"] + message["relPath"])
+        resp.raise_for_status()
+        content = resp.content
+        
+    return content
+
 def parse_mqp_message(message,topic):
     """ Function that receives a MQP notification based on the WIS 2.0 specifications, as well as the routing key (topic).
     Obtains the file of the notification, either from the message directly or via downloading.
@@ -65,9 +76,7 @@ def parse_mqp_message(message,topic):
     if ONLY_BUFR and not filename.endswith(".bufr4"):
         return False
         
-       
-    # either download message or obtain it directly from the message structure    
-    content = base64.b64decode(message["content"]["value"]) if "content" in message else requests.get(message["baseUrl"] + message["relPath"]).content
+    content = process_message_content(message)
         
     # check message length and checksum. Only sha512 supported at the moment
     content_hash = base64.b64encode( hashlib.sha512(content).digest() ).decode("utf8")
